@@ -29,10 +29,16 @@ const std = @import("std");
 pub fn quadSort(
     comptime T: anytype,
     items: []T,
-    context: anytype,
-    lessThan: fn (@TypeOf(context), a: T, b: T) bool,
+    // context: anytype,
+    // lessThan: fn (@TypeOf(context), a: T, b: T) bool,
 ) void {
     if (items.len < 2) return;
+
+    // if (items.len < 32) {
+    //     tailSwap(items, lessThan);
+    // } else if (quadSwap(items, lessThan) == 0) {
+    //     // XXX: missing...
+    // }
 }
 
 // #define parity_merge_two(array, swap, x, y, ptl, ptr, pts, cmp)  \
@@ -65,15 +71,49 @@ fn unguardedInsert(
     comptime T: anytype,
     items: []T,
     offset: usize,
-    lessThan: fn (context: @TypeOf(context), a: T, b: T) bool,
+    // lessThan: fn (context: @TypeOf(context), a: T, b: T) bool,
 ) void {
-    const key: T = undefined;
-    const pta: T = undefined;
-    const end: T = undefined;
-
     var i: usize = offset;
     while (i < items.len) : (i += 1) {
-        pta = items + i;
-        end = items + i;
+        var pta = i;
+        var end = i;
+
+        pta -= 1;
+        if (std.math.order(items[pta], items[end]).compare(.lte)) continue;
+
+        const key = items[end];
+
+        if (std.math.order(items[0], key).compare(.gt)) {
+            var top = i;
+            while (true) {
+                items[end] = items[pta];
+                end -= 1;
+                pta -= 1;
+
+                top -= 1;
+                if (top == 0) break;
+            }
+            items[end] = key;
+        } else {
+            while (true) {
+                items[end] = items[pta];
+                end -= 1;
+                pta -= 1;
+
+                if (std.math.order(items[pta], key).compare(.lte)) break;
+            }
+            items[end] = key;
+        }
     }
+}
+
+test "unguardedInsert" {
+    var array = [_]usize{ 1, 4, 8, 12, 3, 21, 18 };
+
+    unguardedInsert(usize, &array, 4);
+
+    // std.debug.print("{any}\n", .{array});
+
+    const exp = [_]usize{ 1, 3, 4, 8, 12, 18, 21 };
+    try std.testing.expectEqualSlices(usize, &exp, &array);
 }
