@@ -88,7 +88,7 @@ fn unguardedInsert(
             while (true) {
                 items[end] = items[pta];
                 end -= 1;
-                pta -= 1;
+                pta -|= 1;
 
                 top -= 1;
                 if (top == 0) break;
@@ -98,8 +98,9 @@ fn unguardedInsert(
             while (true) {
                 items[end] = items[pta];
                 end -= 1;
-                pta -= 1;
+                pta -|= 1;
 
+                // this is a condition to break from loop, so reverse the original
                 if (std.math.order(items[pta], key).compare(.lte)) break;
             }
             items[end] = key;
@@ -108,12 +109,56 @@ fn unguardedInsert(
 }
 
 test "unguardedInsert" {
-    var array = [_]usize{ 1, 4, 8, 12, 3, 21, 18 };
+    {
+        var array = [_]usize{ 1, 4, 8, 12, 3, 21, 18 };
+        const exp = [_]usize{ 1, 3, 4, 8, 12, 18, 21 };
 
-    unguardedInsert(usize, &array, 4);
+        // only sorts items after offset!
+        unguardedInsert(usize, &array, 1);
 
-    // std.debug.print("{any}\n", .{array});
+        try std.testing.expectEqualSlices(usize, &exp, &array);
+    }
 
-    const exp = [_]usize{ 1, 3, 4, 8, 12, 18, 21 };
-    try std.testing.expectEqualSlices(usize, &exp, &array);
+    {
+        var array = [_]usize{ 1, 4, 8, 12, 3, 21, 18 };
+        const exp = [_]usize{ 1, 4, 8, 12, 3, 18, 21 };
+
+        unguardedInsert(usize, &array, 5);
+
+        try std.testing.expectEqualSlices(usize, &exp, &array);
+    }
+
+    {
+        var array = [_]usize{ 1, 4, 8, 12, 3, 21, 18 };
+        const exp = [_]usize{ 1, 4, 8, 12, 3, 21, 18 };
+
+        unguardedInsert(usize, &array, 7);
+
+        try std.testing.expectEqualSlices(usize, &exp, &array);
+    }
+
+    {
+        const ARRAY_SIZE = 10_000;
+        const TYPE = usize;
+        const rnd = std.rand.DefaultPrng.init(@intCast(u64, std.time.milliTimestamp())).random();
+        var array = try std.ArrayList(TYPE).initCapacity(std.testing.allocator, ARRAY_SIZE);
+        defer array.deinit();
+
+        var i: usize = 0;
+        while (i < ARRAY_SIZE) : (i += 1) {
+            const num = rnd.intRangeAtMostBiased(usize, std.math.minInt(TYPE), std.math.maxInt(TYPE));
+            array.appendAssumeCapacity(num);
+        }
+
+        var reference = try array.clone();
+        defer reference.deinit();
+
+        std.sort.sort(TYPE, reference.items, {}, comptime std.sort.asc(TYPE));
+        // std.debug.print("{any}\n", .{reference.items});
+
+        unguardedInsert(TYPE, array.items, 1);
+        // std.debug.print("{any}\n", .{array.items});
+
+        try std.testing.expectEqualSlices(TYPE, reference.items, array.items);
+    }
 }
